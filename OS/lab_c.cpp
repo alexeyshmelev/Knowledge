@@ -4,10 +4,31 @@
 #include <string.h>
 #include <time.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 int count = 0;
 bool sit = true;
+char* pointer;
 int fd;
+
+char* get_data(char* buff){
+	int p;
+
+	if (fork() == 0){
+		p = creat("some_file", 0777);
+		close(1);
+		dup(p); 
+		execl("/bin/find", "find", "../Homework_2/", "-maxdepth", "1", "-size", "+24b", "-atime", "-5", "-ls", NULL);
+	}
+	else {
+		wait(0);
+		p = open("some_file", O_RDONLY);
+		read(p, buff, 3000);
+		close(p);
+		}
+	return buff;
+}
 
 void handl(int signal_number){
 	count++;
@@ -15,56 +36,34 @@ void handl(int signal_number){
 	if (count == 2){
 		int i = 0;
 		int total = 0;
-		char total_s[100];
-		int date;
-		time_t now = time(0);
-		char* dt = ctime(&now);
-		strtok(dt, " ");
-		strtok(NULL, " ");
-		date = atoi(strtok(NULL, " "));
 		sit = false;
-		int p[2], d[2];
-		pipe(p);
+		int d;
+		char delim[] = " \n";
+		char *p[2000] = {0};
+		p[0] = strtok(pointer, delim);
+		
+		while (p[i] != NULL) {
+			i++;
+			p[i] = strtok(NULL, delim);
+		}
+			
+		int j = 1;
+		while (j < i){
+			total += atoi(p[j]);
+			j += 11;
+		}
 		if (fork() == 0){
-			close(p[0]); //close FIFO-file (for child thread) for reading
-			close(1); // close stdout
-			dup(p[1]); // clone FIFO-file (for child thread) for writing to the 1st position
-			system("ls -sl ../Homework_2/");
+			d = creat("some_file", 0777);
+			close(1);
+			dup(d);
+			printf("%d", total);
 			exit(0);
 		}
 		else{
 			wait(0);
-			close(p[1]); // close FIFO-file (for parent thread) for writing
-			read(p[0], buff, 3000);
-			close(p[0]);
-			char delim[] = " \n";
-			char *p[2000] = {0};
-			p[0] = strtok(buff, delim);
-		
-			while (p[i] != NULL) {
-				i++;
-				p[i] = strtok(NULL, delim);
+			d = open("some_file", 0);
+			fd = d;
 			}
-			
-			int j = 2;
-			while (j < i){
-				if (atoi(p[j]) > 12 && (atoi(p[j+7])-date) < 5) total += atoi(p[j]);
-				j += 10;
-			}
-			pipe(d);
-			if (fork() == 0){
-				close(d[0]);
-				close(1);
-				dup(d[1]);
-				printf("%d", total);
-				exit(0);
-			}
-			else{
-				wait(0);
-				close(d[1]);
-				fd = d[0];
-			}
-		}
 	}
 }
 
@@ -72,77 +71,47 @@ int main() {
 	printf("Lab 1. Var 23.\n");
 
 	int i = 0;
-	int date;
-	int counter = 0;
-	int count_block = 0;
-	int count_date = 0;
 	time_t now = time(0);
 	char* dt = ctime(&now);
 	printf("%s", dt);
 	fflush(stdout);
-	strtok(dt, " ");
-	strtok(NULL, " ");
-	date = atoi(strtok(NULL, " "));
 
 	struct sigaction parent;
 	parent.sa_handler = handl;
 	parent.sa_flags = 0;
-	sigprocmask(0, 0, &parent.sa_mask);
-	sigaction(SIGINT, &parent, 0);
-
-	int p[2];
+	sigprocmask(0, 0, &parent.sa_mask); // первый аргумент - изменять ли сигнальную маску или нет (SIG_SETMASK - если да), второй аргумент - новая сигнальная маска, третий - старая
+	sigaction(SIGINT, &parent, 0); // третий аргумент - сохранение старого действия
+	
 	char buff[3000];
-	pipe(p);
-
-	if (fork() == 0){
-		close(p[0]); //close FIFO-file (for child thread) for reading
-		close(1); // close stdout
-		dup(p[1]); // clone FIFO-file (for child thread) for writing to the 1st position
+	pointer = get_data(buff);
+		
 		sleep(2);
-		execl("/bin/ls", "ls", "-sl", "../Homework_2/", NULL);
-	}
-	else {
-		wait(0);
-		close(p[1]); // close FIFO-file (for parent thread) for writing
-		read(p[0], buff, 3000);
-		close(p[0]);
-		char delim[] = " \n";
-		char *p[2000] = {0};
-		p[0] = strtok(buff, delim);
-		
-		while (p[i] != NULL) {
-			i++;
-			p[i] = strtok(NULL, delim);
-		}
-	sleep(2);
+		sleep(2);
 
-	int j = 2;
-	if (sit){
-		printf("Selected files:\n");
-		while (j < i){
-			if (atoi(p[j]) > 12 && (atoi(p[j+7])-date) < 5) {
-				printf("%s\n", p[j+9]);
-				fflush(stdout);
+		if (sit){
+			printf("Selected files:\n");
+			fflush(stdout);
+			char delim[] = " \n";
+			char *p[2000] = {0};
+			p[0] = strtok(pointer, delim);
+		
+			while (p[i] != NULL) {
+				i++;
+				p[i] = strtok(NULL, delim);
 			}
-			j += 10;
+			
+			int j = 10;
+			while (j < i){
+				printf("%s\n", p[j]);
+				j += 11;
+			}
 		}
-	}
-	else{
-		char total[100];
-		read(fd, total, 100);
-		printf("\nTotal size: %s\n", total);
-		fflush(stdout);
+		else{
+			char total[100];
+			read(fd, total, 100);
+			printf("\nTotal size: %s\n", total);
+			fflush(stdout);
 		
-	}
-
-	}
+		}
 	return 0;
 }
-
-
-
-
-
-
-
-
