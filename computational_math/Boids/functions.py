@@ -3,17 +3,21 @@ from scipy.spatial.distance import cdist
 from numba import njit, prange, cuda, jit
 import math
 import cupy as cp
+import time
+from multiprocessing import Process
 
-memory_pool = cp.cuda.MemoryPool()
-cp.cuda.set_allocator(memory_pool.malloc)
+# memory_pool = cp.cuda.MemoryPool()
+# cp.cuda.set_allocator(memory_pool.malloc)
+# device = cp.cuda.Device()
 
-@cuda.jit(device=True)
-def mean_axis0_gpu(arr, res):
-    n = arr.shape[1]
-    res = np.empty(n, dtype=arr.dtype)
-    for i in range(n):
-        res[i] = arr[:, i].mean()
-    return res
+
+# @cuda.jit(device=True)
+# def mean_axis0_gpu(arr, res):
+#     n = arr.shape[1]
+#     res = np.empty(n, dtype=arr.dtype)
+#     for i in range(n):
+#         res[i] = arr[:, i].mean()
+#     return res
 
 
 @cuda.jit
@@ -45,89 +49,109 @@ def new_simulate(boids, D, M, perception, asp, coeffs, left, right, bottom, top,
         wa[i, 1] = ay[i]
 
 
-def simulate_cpu(boids, D, M, wa, coeffs):
-    boids = cp.asarray(boids)
-    D = cp.asarray(D)
-    M = cp.asarray(M)
-    wa = cp.asarray(wa)
-    coeffs = cp.asarray(coeffs)
+# def gpu_stream(i, boids, D, M, wa, coeffs):
+#     idx = cp.where(M[i])[0]  # в каких местах True
+#     accels = cp.zeros((5, 2))
+#     time.sleep(6)
+#     if idx.size > 0:
+#         accels[0] = alignment(boids, i, idx)
+#         accels[1] = cohesion(boids, i, idx)
+#         accels[2] = separation(boids, i, idx, D)
+#     accels[3] = wa[i]
+#     # clip_mag(accels, *arange)
+#     boids[i, 4:6] = cp.sum(accels * coeffs.reshape(-1, 1), axis=0)
+#
+#
+# def simulate_cpu(boids, D, M, wa, coeffs):
+#     boids = cp.asarray(boids)
+#     D = cp.asarray(D)
+#     M = cp.asarray(M)
+#     wa = cp.asarray(wa)
+#     coeffs = cp.asarray(coeffs)
+#
+#     map_streams = []
+#     for i in range(10000):
+#         map_streams.append(cp.cuda.stream.Stream())
+#     # global memory_pool
+#     processes = []
+#     for i, stream in enumerate(map_streams):
+#         processes.append(Process(target=gpu_stream, args=(i, boids, D, M, wa, coeffs)))
+#
+#     # stop_events = []
+#     # reduce_stream = cp.cuda.stream.Stream()
+#
+#     for i, stream in enumerate(map_streams):
+#         with stream:
+#             processes[i].start()
+#
+#     for i in range(10000):
+#         processes[i].join()
+#         # stop_event = stream.record()
+#         # stop_events.append(stop_event)
+#         # stream.synchronize()
+#
+#
+#     # device.synchronize()
+#
+#     boids = boids.get()
+#     D = D.get()
+#     M = M.get()
+#     wa = wa.get()
+#     coeffs = coeffs.get()
+#
+#     # for i in range(M.shape[0]):
+#     #     reduce_stream.wait_event(stop_events[i])
+#
+#     # with reduce_stream:
+#     #     boids = boids.get()
+#     #     D = D.get()
+#     #     M = M.get()
+#     #     wa = wa.get()
+#     #     coeffs = coeffs.get()
+#     # device.synchronize()
+#     #
+#     # for stream in map_streams:
+#     #     memory_pool.free_all_blocks(stream=stream)
+#
+#     # for i in range(boids.shape[0]):
+#     #     idx = np.where(M[i])[0] # в каких местах True
+#     #     accels = np.zeros((5, 2))
+#     #     if idx.size > 0:
+#     #         accels[0] = alignment(boids, i, idx)
+#     #         accels[1] = cohesion(boids, i, idx)
+#     #         accels[2] = separation(boids, i, idx, D)
+#     #     accels[3] = wa[i]
+#     #     # clip_mag(accels, *arange)
+#     #     boids[i, 4:6] = np.sum(accels * coeffs.reshape(-1, 1), axis=0)
 
-    device = cp.cuda.Device()
-    global memory_pool
-
-    map_streams = []
-    stop_events = []
-    reduce_stream = cp.cuda.stream.Stream()
-    for i in range(M.shape[0]):
-        map_streams.append(cp.cuda.stream.Stream())
-
-    for i, stream in enumerate(map_streams):
-        with stream:
-            idx = cp.where(M[i])[0]  # в каких местах True
-            accels = cp.zeros((5, 2))
-            if idx.size > 0:
-                accels[0] = alignment(boids, i, idx)
-                accels[1] = cohesion(boids, i, idx)
-                accels[2] = separation(boids, i, idx, D)
-            accels[3] = wa[i]
-            # clip_mag(accels, *arange)
-            boids[i, 4:6] = cp.sum(accels * coeffs.reshape(-1, 1), axis=0)
-        stop_event = stream.record()
-        stop_events.append(stop_event)
-
-    for i in range(M.shape[0]):
-        reduce_stream.wait_event(stop_events[i])
-
-    with reduce_stream:
-        boids = boids.get()
-        D = D.get()
-        M = M.get()
-        wa = wa.get()
-        coeffs = coeffs.get()
-    device.synchronize()
-
-    for stream in map_streams:
-        memory_pool.free_all_blocks(stream=stream)
-
-    # for i in range(boids.shape[0]):
-    #     idx = np.where(M[i])[0] # в каких местах True
-    #     accels = np.zeros((5, 2))
-    #     if idx.size > 0:
-    #         accels[0] = alignment(boids, i, idx)
-    #         accels[1] = cohesion(boids, i, idx)
-    #         accels[2] = separation(boids, i, idx, D)
-    #     accels[3] = wa[i]
-    #     # clip_mag(accels, *arange)
-    #     boids[i, 4:6] = np.sum(accels * coeffs.reshape(-1, 1), axis=0)
 
 
 
 
-
-def simulate(boids, D, perception, asp, coeffs):
-    threadsperblock = (32, 32)
-    blockspergrid_x = math.ceil(D.shape[0] / threadsperblock[0])
-    blockspergrid_y = math.ceil(D.shape[1] / threadsperblock[1])
-    blockspergrid = (blockspergrid_x, blockspergrid_y)
-
-    # data = np.copy(boids[:, :2])
-
-    calc_dist[blockspergrid, threadsperblock](boids, D)
-
-    # boids[:, :2] = data
-    M = D < perception
-    np.fill_diagonal(M, False)
-    wa = wall_avoidance(boids, asp)
-    for i in range(boids.shape[0]):
-        idx = np.where(M[i])[0] # в каких местах True
-        accels = np.zeros((5, 2))
-        if idx.size > 0:
-            accels[0] = alignment(boids, i, idx)
-            accels[1] = cohesion(boids, i, idx)
-            accels[2] = separation(boids, i, idx, D)
-        accels[3] = wa[i]
-        # clip_mag(accels, *arange)
-        boids[i, 4:6] = np.sum(accels * coeffs.reshape(-1, 1), axis=0)
+# def simulate(boids, D, perception, asp, coeffs):
+#     threadsperblock = (32, 32)
+#     blockspergrid_x = math.ceil(D.shape[0] / threadsperblock[0])
+#     blockspergrid_y = math.ceil(D.shape[1] / threadsperblock[1])
+#     blockspergrid = (blockspergrid_x, blockspergrid_y)
+#
+#     # data = np.copy(boids[:, :2])
+#
+#     calc_dist[blockspergrid, threadsperblock](boids, D)
+#
+#     # boids[:, :2] = data
+#     M = D < perception
+#     np.fill_diagonal(M, False)
+#     wa = wall_avoidance(boids, asp)
+#     for i in range(boids.shape[0]):
+#         idx = np.where(M[i])[0] # в каких местах True
+#         accels = np.zeros((5, 2))
+#         if idx.size > 0:
+#             accels[0] = alignment(boids, i, idx)
+#             accels[1] = cohesion(boids, i, idx)
+#             accels[2] = separation(boids, i, idx, D)
+#         accels[3] = wa[i]
+#         # clip_mag(accels, *arange)
+#         boids[i, 4:6] = np.sum(accels * coeffs.reshape(-1, 1), axis=0)
 
 
 

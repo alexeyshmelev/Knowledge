@@ -4,9 +4,91 @@ from datetime import datetime
 from vispy import app, scene
 from functions import *
 import time
+import os
+from threading import Thread
+os.environ['CUPY_ACCELERATORS'] = 'cub,cutensor'
 
 from numba import cuda
 print(cuda.gpus)
+
+def gpu_stream(i, boids, D, M, wa, coeffs, stream):
+    # print(stream)
+    idx = cp.where(M[i])[0]  # в каких местах True
+    accels = cp.zeros((5, 2))
+    time.sleep(6)
+    if idx.size > 0:
+        accels[0] = alignment(boids, i, idx)
+        accels[1] = cohesion(boids, i, idx)
+        accels[2] = separation(boids, i, idx, D)
+    accels[3] = wa[i]
+    # clip_mag(accels, *arange)
+    boids[i, 4:6] = cp.sum(accels * coeffs.reshape(-1, 1), axis=0)
+
+
+def simulate_cpu(boids, D, M, wa, coeffs):
+    boids = cp.asarray(boids)
+    D = cp.asarray(D)
+    M = cp.asarray(M)
+    wa = cp.asarray(wa)
+    coeffs = cp.asarray(coeffs)
+
+    map_streams = []
+    for i in range(10000):
+        map_streams.append(cp.cuda.stream.Stream())
+    # global memory_pool
+    processes = []
+    for i, stream in enumerate(map_streams):
+        processes.append(Thread(target=gpu_stream, args=(i, boids, D, M, wa, coeffs, stream)))
+
+    # stop_events = []
+    # reduce_stream = cp.cuda.stream.Stream()
+
+    for i, stream in enumerate(map_streams):
+        with stream:
+            processes[i].start()
+            # print(i)
+
+    print("start join")
+    for i in range(10000):
+        processes[i].join()
+        # stop_event = stream.record()
+        # stop_events.append(stop_event)
+        # stream.synchronize()
+    print("END")
+
+
+    # device.synchronize()
+
+    boids = boids.get()
+    D = D.get()
+    M = M.get()
+    wa = wa.get()
+    coeffs = coeffs.get()
+
+    # for i in range(M.shape[0]):
+    #     reduce_stream.wait_event(stop_events[i])
+
+    # with reduce_stream:
+    #     boids = boids.get()
+    #     D = D.get()
+    #     M = M.get()
+    #     wa = wa.get()
+    #     coeffs = coeffs.get()
+    # device.synchronize()
+    #
+    # for stream in map_streams:
+    #     memory_pool.free_all_blocks(stream=stream)
+
+    # for i in range(boids.shape[0]):
+    #     idx = np.where(M[i])[0] # в каких местах True
+    #     accels = np.zeros((5, 2))
+    #     if idx.size > 0:
+    #         accels[0] = alignment(boids, i, idx)
+    #         accels[1] = cohesion(boids, i, idx)
+    #         accels[2] = separation(boids, i, idx, D)
+    #     accels[3] = wa[i]
+    #     # clip_mag(accels, *arange)
+    #     boids[i, 4:6] = np.sum(accels * coeffs.reshape(-1, 1), axis=0)
 
 #%%
 
