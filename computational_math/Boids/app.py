@@ -11,85 +11,6 @@ os.environ['CUPY_ACCELERATORS'] = 'cub,cutensor'
 from numba import cuda
 print(cuda.gpus)
 
-def gpu_stream(i, boids, D, M, wa, coeffs, stream):
-    # print(stream)
-    idx = cp.where(M[i])[0]  # в каких местах True
-    accels = cp.zeros((5, 2))
-    time.sleep(6)
-    if idx.size > 0:
-        accels[0] = alignment(boids, i, idx)
-        accels[1] = cohesion(boids, i, idx)
-        accels[2] = separation(boids, i, idx, D)
-    accels[3] = wa[i]
-    # clip_mag(accels, *arange)
-    boids[i, 4:6] = cp.sum(accels * coeffs.reshape(-1, 1), axis=0)
-
-
-def simulate_cpu(boids, D, M, wa, coeffs):
-    boids = cp.asarray(boids)
-    D = cp.asarray(D)
-    M = cp.asarray(M)
-    wa = cp.asarray(wa)
-    coeffs = cp.asarray(coeffs)
-
-    map_streams = []
-    for i in range(10000):
-        map_streams.append(cp.cuda.stream.Stream())
-    # global memory_pool
-    processes = []
-    for i, stream in enumerate(map_streams):
-        processes.append(Thread(target=gpu_stream, args=(i, boids, D, M, wa, coeffs, stream)))
-
-    # stop_events = []
-    # reduce_stream = cp.cuda.stream.Stream()
-
-    for i, stream in enumerate(map_streams):
-        with stream:
-            processes[i].start()
-            # print(i)
-
-    print("start join")
-    for i in range(10000):
-        processes[i].join()
-        # stop_event = stream.record()
-        # stop_events.append(stop_event)
-        # stream.synchronize()
-    print("END")
-
-
-    # device.synchronize()
-
-    boids = boids.get()
-    D = D.get()
-    M = M.get()
-    wa = wa.get()
-    coeffs = coeffs.get()
-
-    # for i in range(M.shape[0]):
-    #     reduce_stream.wait_event(stop_events[i])
-
-    # with reduce_stream:
-    #     boids = boids.get()
-    #     D = D.get()
-    #     M = M.get()
-    #     wa = wa.get()
-    #     coeffs = coeffs.get()
-    # device.synchronize()
-    #
-    # for stream in map_streams:
-    #     memory_pool.free_all_blocks(stream=stream)
-
-    # for i in range(boids.shape[0]):
-    #     idx = np.where(M[i])[0] # в каких местах True
-    #     accels = np.zeros((5, 2))
-    #     if idx.size > 0:
-    #         accels[0] = alignment(boids, i, idx)
-    #         accels[1] = cohesion(boids, i, idx)
-    #         accels[2] = separation(boids, i, idx, D)
-    #     accels[3] = wa[i]
-    #     # clip_mag(accels, *arange)
-    #     boids[i, 4:6] = np.sum(accels * coeffs.reshape(-1, 1), axis=0)
-
 #%%
 
 app.use_app('pyglet')
@@ -119,14 +40,14 @@ arange = np.array([0., 1.0])
 
 coeffs = np.array([1.0,  # alignment
                    1.0,  # cohesion
-                   0.05,  # separation
-                   0.001,  # walls
+                   0.00,  # separation
+                   0.000,  # walls
                    0.0   # noise
                    ])
 
 # x, y, vx, vy, ax, ay
 boids = np.zeros((N, 6), dtype=np.float32)
-D = np.zeros((N, N), dtype=np.float32)
+D = cuda.to_device(np.zeros((N, N), dtype=np.float32))
 init_boids(boids, asp, vrange)
 # nb0 = calc_neighbors(boids, perception)
 
@@ -165,22 +86,25 @@ if video:
 #%%
 
 threadsperblock = (32, 32)
-blockspergrid_x = math.ceil(N / threadsperblock[0]) // 2
-blockspergrid_y = math.ceil(N / threadsperblock[1]) // 2
+blockspergrid_x = math.ceil(N / threadsperblock[0]) // 64
+blockspergrid_y = math.ceil(N / threadsperblock[1]) // 64
 blockspergrid = (blockspergrid_x, blockspergrid_y)
-M = np.zeros((N, N), dtype=np.float32)
+M = cuda.to_device(np.zeros((N, N), dtype=np.float32))
 left = cuda.to_device(np.zeros(N, dtype=np.float32))
 right = cuda.to_device(np.zeros(N, dtype=np.float32))
 bottom = cuda.to_device(np.zeros(N, dtype=np.float32))
 top = cuda.to_device(np.zeros(N, dtype=np.float32))
 ax = cuda.to_device(np.zeros(N, dtype=np.float32))
 ay = cuda.to_device(np.zeros(N, dtype=np.float32))
-wa = np.zeros((N, 2), dtype=np.float32)
+wa = cuda.to_device(np.zeros((N, 2), dtype=np.float32))
+accels = cuda.to_device(np.zeros((5, 2)))
+tmp = cuda.to_device(np.zeros((N, 2)))
+
 
 def update(event):
     global process, boids, D
-    new_simulate[blockspergrid, threadsperblock](boids, D, M, perception, asp, coeffs, left, right, bottom, top, ax, ay, wa)
-    simulate_cpu(boids, D, M, wa, coeffs)
+    new_simulate[blockspergrid, threadsperblock](boids, D, M, perception, asp, coeffs, left, right, bottom, top, ax, ay, wa, accels, tmp)
+    # simulate_cpu(boids, D, M, wa, coeffs)
     propagate(boids, dt, vrange)
     periodic_walls(boids, asp)
     arrows.set_data(arrows=directions(boids))

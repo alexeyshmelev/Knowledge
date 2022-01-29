@@ -2,26 +2,12 @@ import numpy as np
 from scipy.spatial.distance import cdist
 from numba import njit, prange, cuda, jit
 import math
-import cupy as cp
 import time
-from multiprocessing import Process
 
-# memory_pool = cp.cuda.MemoryPool()
-# cp.cuda.set_allocator(memory_pool.malloc)
-# device = cp.cuda.Device()
-
-
-# @cuda.jit(device=True)
-# def mean_axis0_gpu(arr, res):
-#     n = arr.shape[1]
-#     res = np.empty(n, dtype=arr.dtype)
-#     for i in range(n):
-#         res[i] = arr[:, i].mean()
-#     return res
 
 
 @cuda.jit
-def new_simulate(boids, D, M, perception, asp, coeffs, left, right, bottom, top, ax, ay, wa):
+def new_simulate(boids, D, M, perception, asp, coeffs, left, right, bottom, top, ax, ay, wa, accels, tmp):
     # M, left, right, bottom, top, ax, ay, wa, accels, res - zeros matrix
     # calc_dist
     arr = boids[:, :2]
@@ -34,7 +20,7 @@ def new_simulate(boids, D, M, perception, asp, coeffs, left, right, bottom, top,
     # check radius
     if i < n and j < n and i != j:
         if D[i, j] < perception:
-            M[i, i] = 1.
+            M[i, j] = 1
     # wall avoidance
     if i < n:
         left[i] = math.fabs(boids[i, 0])
@@ -47,84 +33,86 @@ def new_simulate(boids, D, M, perception, asp, coeffs, left, right, bottom, top,
 
         wa[i, 0] = ax[i]
         wa[i, 1] = ay[i]
+    # range
+    if i < n:
+        accels[:, :] = 0
+        tmp[:, :] = 0
+        # alignment
+        mean_gpu(boids, M, i, n, 2, 3, accels)
+        # cohesion
+        mean_gpu(boids, M, i, n, 0, 1, accels)
+        # separation
+        separation_gpu(boids, M, i, n, tmp, D, accels)
+
+        accels[3, 0] = wa[i, 0]
+        accels[3, 1] = wa[i, 1]
+
+        boids[i, 4] = accels[0, 0] * coeffs[0] + accels[1, 0] * coeffs[1] + accels[2, 0] * coeffs[2] + accels[3, 0] * coeffs[3] + accels[4, 0] * coeffs[4]
+        boids[i, 5] = accels[0, 1] * coeffs[0] + accels[1, 1] * coeffs[1] + accels[2, 1] * coeffs[2] + accels[3, 1] * coeffs[3] + accels[4, 1] * coeffs[4]
 
 
-# def gpu_stream(i, boids, D, M, wa, coeffs):
-#     idx = cp.where(M[i])[0]  # в каких местах True
-#     accels = cp.zeros((5, 2))
-#     time.sleep(6)
-#     if idx.size > 0:
-#         accels[0] = alignment(boids, i, idx)
-#         accels[1] = cohesion(boids, i, idx)
-#         accels[2] = separation(boids, i, idx, D)
-#     accels[3] = wa[i]
-#     # clip_mag(accels, *arange)
-#     boids[i, 4:6] = cp.sum(accels * coeffs.reshape(-1, 1), axis=0)
-#
-#
-# def simulate_cpu(boids, D, M, wa, coeffs):
-#     boids = cp.asarray(boids)
-#     D = cp.asarray(D)
-#     M = cp.asarray(M)
-#     wa = cp.asarray(wa)
-#     coeffs = cp.asarray(coeffs)
-#
-#     map_streams = []
-#     for i in range(10000):
-#         map_streams.append(cp.cuda.stream.Stream())
-#     # global memory_pool
-#     processes = []
-#     for i, stream in enumerate(map_streams):
-#         processes.append(Process(target=gpu_stream, args=(i, boids, D, M, wa, coeffs)))
-#
-#     # stop_events = []
-#     # reduce_stream = cp.cuda.stream.Stream()
-#
-#     for i, stream in enumerate(map_streams):
-#         with stream:
-#             processes[i].start()
-#
-#     for i in range(10000):
-#         processes[i].join()
-#         # stop_event = stream.record()
-#         # stop_events.append(stop_event)
-#         # stream.synchronize()
-#
-#
-#     # device.synchronize()
-#
-#     boids = boids.get()
-#     D = D.get()
-#     M = M.get()
-#     wa = wa.get()
-#     coeffs = coeffs.get()
-#
-#     # for i in range(M.shape[0]):
-#     #     reduce_stream.wait_event(stop_events[i])
-#
-#     # with reduce_stream:
-#     #     boids = boids.get()
-#     #     D = D.get()
-#     #     M = M.get()
-#     #     wa = wa.get()
-#     #     coeffs = coeffs.get()
-#     # device.synchronize()
-#     #
-#     # for stream in map_streams:
-#     #     memory_pool.free_all_blocks(stream=stream)
-#
-#     # for i in range(boids.shape[0]):
-#     #     idx = np.where(M[i])[0] # в каких местах True
-#     #     accels = np.zeros((5, 2))
-#     #     if idx.size > 0:
-#     #         accels[0] = alignment(boids, i, idx)
-#     #         accels[1] = cohesion(boids, i, idx)
-#     #         accels[2] = separation(boids, i, idx, D)
-#     #     accels[3] = wa[i]
-#     #     # clip_mag(accels, *arange)
-#     #     boids[i, 4:6] = np.sum(accels * coeffs.reshape(-1, 1), axis=0)
+
+@cuda.jit(device=True)
+def mean_gpu(boids, M, i, n, a, b, accels):
+    sum_x = 0
+    sum_y = 0
+    counter = 0
+    for j in range(n):
+        if M[i, j] == 1:
+            sum_x += boids[j, a]
+            sum_y += boids[j, b]
+            counter += 1
+    sum_x /= counter
+    sum_y /= counter
+    if a == 2 and b == 3:
+        accels[0, 0] = sum_x - boids[i, a]
+        accels[0, 1] = sum_y - boids[i, b]
+    else:
+        accels[1, 0] = sum_x - boids[i, 0]
+        accels[1, 1] = sum_y - boids[i, 1]
 
 
+@cuda.jit(device=True)
+def separation_gpu(boids, M, i, n, tmp, D, accels):
+    sum_x = 0
+    sum_y = 0
+    for j in range(n):
+        if M[i, j] == 1:
+            tmp[j, 0] = - boids[j, 0] + boids[i, 0]
+            tmp[j, 1] = - boids[j, 1] + boids[i, 1]
+    for j in range(n):
+        if M[i, j] == 1:
+            sum_x += tmp[j, 0] / D[i, j]
+            sum_y += tmp[j, 1] / D[i, j]
+
+    accels[2, 0], accels[2, 1] = sum_x, sum_y
+
+
+def mean_axis0(arr):
+    n = arr.shape[1]
+    res = np.empty(n, dtype=arr.dtype)
+    for i in range(n):
+        res[i] = arr[:, i].mean()
+    return res
+
+
+def alignment(boids, i, idx):
+    avg = mean_axis0(boids[idx, 2:4])
+    a = avg - boids[i, 2:4]
+    return a
+
+
+def cohesion(boids, i, idx):
+    center = mean_axis0(boids[idx, 0:2])
+    a = center - boids[i, 0:2]
+    return a
+
+
+
+def separation(boids, i, idx, D):
+    d = boids[i, 0:2] - boids[idx, 0:2]
+    a = np.sum(d / D[i][idx].reshape(-1, 1), axis=0)
+    return a
 
 
 
@@ -155,12 +143,7 @@ def new_simulate(boids, D, M, perception, asp, coeffs, left, right, bottom, top,
 
 
 
-def mean_axis0(arr):
-    n = arr.shape[1]
-    res = cp.empty(n, dtype=arr.dtype)
-    for i in range(n):
-        res[i] = arr[:, i].mean()
-    return res
+
 
 
 @njit
@@ -196,15 +179,15 @@ def propagate(boids, dt, vrange):
     clip_mag(boids[:, 2:4], vrange[0], vrange[1])
 
 
-@cuda.jit
-def calc_dist(arr, D): # вычисление расстояний между всеми boids
-    data = arr[:, :2]
-    n = data.shape[0]
-    i, j = cuda.grid(2)
-    if i < n and j < n and i < j:
-        d = ((data[j, 0]-data[i, 0])**2 + (data[j, 1]-data[i, 1])**2)**0.5
-        D[i, j] = d
-        D[j, i] = d
+# @cuda.jit
+# def calc_dist(arr, D): # вычисление расстояний между всеми boids
+#     data = arr[:, :2]
+#     n = data.shape[0]
+#     i, j = cuda.grid(2)
+#     if i < n and j < n and i < j:
+#         d = ((data[j, 0]-data[i, 0])**2 + (data[j, 1]-data[i, 1])**2)**0.5
+#         D[i, j] = d
+#         D[j, i] = d
 
     # n = arr.shape[0]
     # for i in prange(n):
@@ -227,24 +210,7 @@ def periodic_walls(boids, asp):
     boids[:, :2] %= np.array([asp, 1.])
 
 
-def alignment(boids, i, idx):
-    avg = mean_axis0(boids[idx, 2:4])
-    a = avg - boids[i, 2:4]
-    return a
 
-
-
-def cohesion(boids, i, idx):
-    center = mean_axis0(boids[idx, 0:2])
-    a = center - boids[i, 0:2]
-    return a
-
-
-
-def separation(boids, i, idx, D):
-    d = boids[i, 0:2] - boids[idx, 0:2]
-    a = cp.sum(d / D[i][idx].reshape(-1, 1), axis=0)
-    return a
 
 
 @njit
