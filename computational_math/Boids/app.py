@@ -40,10 +40,10 @@ arange = np.array([0., 1.0])
 
 coeffs = np.array([1.0,  # alignment
                    1.0,  # cohesion
-                   0.00,  # separation
-                   0.000,  # walls
+                   0.05,  # separation
+                   0.001,  # walls
                    0.0   # noise
-                   ])
+                   ], dtype=np.float64)
 
 # x, y, vx, vy, ax, ay
 boids = np.zeros((N, 6), dtype=np.float32)
@@ -85,10 +85,9 @@ if video:
     )
 #%%
 
-threadsperblock = (32, 32)
-blockspergrid_x = math.ceil(N / threadsperblock[0]) // 64
-blockspergrid_y = math.ceil(N / threadsperblock[1]) // 64
-blockspergrid = (blockspergrid_x, blockspergrid_y)
+threadsperblock = 64
+blockspergrid = math.ceil(N / threadsperblock)
+
 M = cuda.to_device(np.zeros((N, N), dtype=np.float32))
 left = cuda.to_device(np.zeros(N, dtype=np.float32))
 right = cuda.to_device(np.zeros(N, dtype=np.float32))
@@ -97,14 +96,16 @@ top = cuda.to_device(np.zeros(N, dtype=np.float32))
 ax = cuda.to_device(np.zeros(N, dtype=np.float32))
 ay = cuda.to_device(np.zeros(N, dtype=np.float32))
 wa = cuda.to_device(np.zeros((N, 2), dtype=np.float32))
-accels = cuda.to_device(np.zeros((5, 2)))
-tmp = cuda.to_device(np.zeros((N, 2)))
+accels = cuda.to_device(np.zeros((N, 5, 2), dtype=np.float32))
+tmp = cuda.to_device(np.zeros((N, N, 2), dtype=np.float32))
+counter = cuda.to_device(np.zeros(N, dtype=np.float32))
+counter2d = cuda.to_device(np.zeros((N, 2), dtype=np.float32))
 
 
 def update(event):
     global process, boids, D
-    new_simulate[blockspergrid, threadsperblock](boids, D, M, perception, asp, coeffs, left, right, bottom, top, ax, ay, wa, accels, tmp)
-    # simulate_cpu(boids, D, M, wa, coeffs)
+    # boids = cuda.to_device(boids)
+    new_simulate[blockspergrid, threadsperblock](boids, D, M, perception, asp, coeffs, left, right, bottom, top, ax, ay, wa, accels, tmp, counter, counter2d)
     propagate(boids, dt, vrange)
     periodic_walls(boids, asp)
     arrows.set_data(arrows=directions(boids))
