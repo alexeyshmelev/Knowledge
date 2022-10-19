@@ -2,7 +2,7 @@ import numpy as np
 import os
 import subprocess
 
-files = sorted(os.listdir('/home/avshmelev/bash_scripts/sm'))
+files = sorted(os.listdir('/home/avshmelev/bash_scripts/sm/c++/'))
 x = [600*i for i in range(1, 11)]
 t = []
 gf = []
