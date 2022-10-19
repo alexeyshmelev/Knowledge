@@ -4,7 +4,7 @@ import os
 from time import time
 import timeit
 
-counter = 1
+counter = 1000
 tt = []
 gf = []
 mf = []
