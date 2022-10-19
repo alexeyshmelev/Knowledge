@@ -3,7 +3,7 @@ from time import time
 import os
 
 steps = 6
-path = '/home/avshmelev/bash_scripts/sm'
+path = '/home/avshmelev/bash_scripts/sm/python/'
 t, flops = [], []
 
 files = sorted(os.listdir(path))
