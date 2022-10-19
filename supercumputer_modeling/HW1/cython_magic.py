@@ -4,14 +4,14 @@ import os
 from time import time
 import timeit
 
-count_exper = 1000
+count_exper = 1
 tt = []
 gf = []
 mf = []
 
-files = sorted(os.listdir('/home/avshmelev/bash_scripts/sm'))
+files = sorted(os.listdir('/home/avshmelev/bash_scripts/sm/python/'))
 for f in files:
-    arr = np.loadtxt('/home/avshmelev/bash_scripts/sm'+f)
+    arr = np.loadtxt('/home/avshmelev/bash_scripts/sm/python/'+f)
     n = arr.shape[1]
 
     t = time()
