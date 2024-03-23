@@ -1,0 +1,55 @@
+##gff-version 3
+# GeneMark.hmm-2 prokaryotic version: 1.25
+# File with sequence: seq.fna
+# File with native parameters: GMS2.mod
+# Native species name and build: unspecified GeneMarkS-2-1.14_1.25
+# File with MetaGeneMark parameters: /home/genemark/bin/gms2/mgm_11.mod
+# translation table: 11
+# output date start: Sat Mar 23 06:06:43 2024
+
+##sequence-region Vasileva_Ekaterina 1 22376
+Vasileva_Ekaterina	GeneMark.hmm2	gene	5	796	.	-	.	ID=gene_1;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	5	796	202.08	-	0	ID=1; Parent=gene_1; gene_type=native; gc=43; length=792;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	797	2026	.	-	.	ID=gene_2;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	797	2026	330.39	-	0	ID=2; Parent=gene_2; gene_type=native; gc=44; length=1230;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	2033	2635	.	-	.	ID=gene_3;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	2033	2635	162.83	-	0	ID=3; Parent=gene_3; gene_type=native; gc=44; length=603;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	2675	4939	.	-	.	ID=gene_4;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	2675	4939	600.89	-	0	ID=4; Parent=gene_4; gene_type=native; gc=45; length=2265;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	4921	5790	.	-	.	ID=gene_5;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	4921	5790	200.70	-	0	ID=5; Parent=gene_5; gene_type=native; gc=42; length=870;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	5801	6340	.	-	.	ID=gene_6;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	5801	6340	139.96	-	0	ID=6; Parent=gene_6; gene_type=native; gc=50; length=540;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	6528	7241	.	+	.	ID=gene_7;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	6528	7241	182.75	+	0	ID=7; Parent=gene_7; gene_type=native; gc=44; length=714;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	7198	8244	.	-	.	ID=gene_8;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	7198	8244	277.25	-	0	ID=8; Parent=gene_8; gene_type=native; gc=44; length=1047;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	8367	9332	.	+	.	ID=gene_9;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	8367	9332	210.14	+	0	ID=9; Parent=gene_9; gene_type=native; gc=41; length=966;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	9439	11724	.	-	.	ID=gene_10;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	9439	11724	560.43	-	0	ID=10; Parent=gene_10; gene_type=native; gc=43; length=2286;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	11761	12417	.	-	.	ID=gene_11;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	11761	12417	179.39	-	0	ID=11; Parent=gene_11; gene_type=native; gc=43; length=657;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	12477	13388	.	-	.	ID=gene_12;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	12477	13388	158.35	-	0	ID=12; Parent=gene_12; gene_type=native; gc=35; length=912;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	13404	14096	.	+	.	ID=gene_13;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	13404	14096	123.46	+	0	ID=13; Parent=gene_13; gene_type=native; gc=37; length=693;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	14141	14902	.	-	.	ID=gene_14;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	14141	14902	182.20	-	0	ID=14; Parent=gene_14; gene_type=native; gc=43; length=762;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	14952	15800	.	-	.	ID=gene_15;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	14952	15800	190.44	-	0	ID=15; Parent=gene_15; gene_type=native; gc=40; length=849;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	16425	17387	.	-	.	ID=gene_16;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	16425	17387	145.30	-	0	ID=16; Parent=gene_16; gene_type=native; gc=29; length=963;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	17419	18486	.	-	.	ID=gene_17;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	17419	18486	306.07	-	0	ID=17; Parent=gene_17; gene_type=native; gc=43; length=1068;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	18467	19084	.	-	.	ID=gene_18;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	18467	19084	140.10	-	0	ID=18; Parent=gene_18; gene_type=native; gc=41; length=618;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	19095	19544	.	+	.	ID=gene_19;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	19095	19544	116.15	+	0	ID=19; Parent=gene_19; gene_type=native; gc=43; length=450;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	19534	20436	.	-	.	ID=gene_20;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	19534	20436	198.35	-	0	ID=20; Parent=gene_20; gene_type=native; gc=39; length=903;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	20461	21456	.	-	.	ID=gene_21;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	20461	21456	309.55	-	0	ID=21; Parent=gene_21; gene_type=native; gc=43; length=996;
+Vasileva_Ekaterina	GeneMark.hmm2	gene	21453	22376	.	-	.	ID=gene_22;
+Vasileva_Ekaterina	GeneMark.hmm2	CDS	21453	22376	93.09	-	0	ID=22; Parent=gene_22; gene_type=atypical; partial=01; gc=40; length=924;
+# Vasileva_Ekaterina	total_logodd	5007.11	average_length	959	average_density	0.98
